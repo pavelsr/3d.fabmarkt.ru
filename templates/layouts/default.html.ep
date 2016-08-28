@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+  <title><%= title %></title>
+
+    %= stylesheet '/bootstrap/css/bootstrap.min.css'
+    %= stylesheet 'main.css'
+    %= stylesheet 'jquery-ui.min.css'
+    %= stylesheet '/bower_components/flag-icon-css/css/flag-icon.min.css'
+
+    %= javascript '/jquery.min.js'
+    %= javascript '/bootstrap/js/bootstrap.min.js'
+    %= javascript '/jquery-ui.min.js'
+    %= javascript '/main.js'
+    %= javascript '/bower_components/angular/angular.min.js'
+    %= javascript '/result_controller.js'
+
+  </head>
+
+  <body>
+  <%= content %>
+  </body>
+</html>

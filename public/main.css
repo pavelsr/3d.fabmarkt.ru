@@ -1,0 +1,20 @@
+.divider {
+	margin-top: 100px;
+}
+
+.loadie { z-index: 9999; }
+
+.gi-big {
+    font-size: 80px;
+   	margin-left: auto;
+  	margin-right: auto;
+  	text-align: center;
+}
+
+
+.how-it-works {
+	width: 300px;
+	height: 50px;
+	margin-left: auto;
+  	margin-right: auto;
+}

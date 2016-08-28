@@ -1,0 +1,10 @@
+Build
+Build.bat
+MYMETA.json
+MYMETA.yml
+_build
+blib
+xs/buildtmp
+*.o
+MANIFEST.bak
+xs/MANIFEST.bak

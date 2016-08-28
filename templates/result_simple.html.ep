@@ -1,0 +1,34 @@
+% layout 'default';
+% title 'Ready!';
+
+<div class="container" ng-app="main">
+
+	<div class="row">
+		<div class="col-md-12">
+			<h1><%=l 'result' %></h1>
+		
+				<p><%=l 'result_cost' %>: <b><%= $param1->{price} %></b> <%=l 'result_currency' %></p>
+
+				<p><%=l 'result_time' %>: 
+				<%= $param1->{expected_print_time}->{printrun}->{time_str}%> 
+				( <%= $param1->{expected_print_time}->{printrun}->{hours}%> <%=l 'result_hours' %> )</p>
+				
+				<p><button ng-click="flag=1;"><%=l 'result_order_button' %></button></p>
+
+				<div id="order_form" ng-show="flag==1">
+
+				<p><%=l 'contact_message' %></p>
+
+				%= form_for order => (method => 'POST') => begin
+				      		
+				    <%=l 'contact_name' %> : <%= text_field 'name' %><br>
+				    <%=l 'contact_phone' %> : <%= text_field 'phone' %><br>
+				    <input type="submit" value="<%=l 'contact_submit' %>">
+
+			    % end
+
+			    </div>
+
+		</div>
+	</div>
+</div>

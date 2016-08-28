@@ -1,0 +1,51 @@
+% layout 'setup';
+% title 'Tune your model!';
+<div class="container">
+	<div class="row">
+		<div class="col-md-8 col-md-offset-1">
+			<h1> Расчет стоимости модели со <a href="#">стандартными</a> параметрами </h1>
+				<h2>Стоимость модели: <b><span id="cost"><%= $param1->{total_cost} %></span> рублей</b></h2>
+				<h2>Ориентировочное время печати: 
+				<b><span id="hours">
+
+				<%= $param1->{time_h} %> часов
+				</span> 
+				<b><span id="minutes"><%= $param1->{time_m} %></span> минут
+				<b><span id="seconds"><%= $param1->{time_s} %></span> секунд 
+				</b></h2>
+		</div>
+	</div>
+</div>
+
+<div class="container">
+	<div class="row" id="settings">
+		<div class="col-m-12">
+			<h1> Настроить модель </h1>
+		</div>
+
+		<div class="row" id="layer_height">
+			<div class="col-md-4">
+				Толщина слоя, мм
+			</div>
+			<div class="col-md-6">
+				<div class="slider"></div>
+			</div>
+			<div class="col-md-2">
+				<div class="slider_val"></div>
+			</div>
+		</div>
+
+		<div class="row" id="fill_density">
+			<div class="col-md-4">
+				Заполнение, %
+			</div>
+			<div class="col-md-6">
+				<div class="slider"></div>
+			</div>
+			<div class="col-md-2">
+				<div class="slider_val"></div>
+			</div>
+		</div>
+		<%= link_to index => begin %>Расчитать новую модель<% end %>
+	</div>
+</div>

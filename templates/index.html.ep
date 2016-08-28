@@ -1,0 +1,126 @@
+% layout 'default';
+% title 'Welcome';
+
+<header>
+<!-- <nav class="navbar navbar-default" role="navigation"> -->
+  <div class="container">
+
+ 	<nav class="navbar navbar-default">
+ 		<div class="container-fluid">
+		    <div class="navbar-header">
+		      <a class="navbar-brand" href="#">
+		        <span class="glyphicon glyphicon-cloud-download"></span>
+		      </a>
+		    </div>
+		    
+		    <ul class="nav navbar-nav">
+		       	<li><a href="/about">
+		       		<%=l 'about_service' %>
+		       	</a></li>
+		    </ul>
+
+		    <ul class="nav navbar-nav navbar-right">
+		    	<li><a href="/en"><span class="flag-icon flag-icon-gb"></span></a></li>
+		    	<li><a href="/ru"><span class="flag-icon flag-icon-ru"></span></a></li>
+		    </ul>
+		</div>
+	</nav>
+
+  </div>
+<!-- </nav> -->
+</header>
+
+
+<section>
+<div class="container">
+	<div class="row">
+		<div class="col-md-12">
+			<div class="center-block">
+			</div>
+		</di>
+	</div>
+</div>
+</section>
+
+<section>
+	<div class="container">
+		<div class="jumbotron">
+			<div class="row">
+				<div class="col-md-12">
+					<div class="center-block" style="width:500px;text-align=center">
+						<h1><%=l 'app_name' %></h1>	
+						<p><%=l 'app_description' %></p>
+
+						<div class="row" style="margin-top:50px;">
+						%= form_for upload => (enctype => 'multipart/form-data', ) => (method => 'POST') => begin
+				      		
+				      		%= file_field 'model', accept => '.stl,.STL'
+				      		<%=l 'file_upload_helper' %> <b>*.stl</b>
+				      		<div class="row" style="margin-top:50px;">
+				      		<button type="submit" class="btn btn-lg btn-success btn-block"><%=l 'submit_button' %></button>
+				      		</div>				      		
+			    		% end
+			    		</div>
+					</div>
+				</div>
+			</div>
+
+			<div class="row">
+				<div>
+					<div class="col-md-12">
+						<div class="divider"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+<section>
+	<div class="container">
+		<div class="row">
+			<div class="col-md-12">
+				<div class="center-block">
+					<div class="how-it-works">
+						<h2><%=l 'how_it_works' %></h2>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="row">
+			<div class="col-md-4">
+				<div class="center-block">
+					<span class="glyphicon glyphicon-pencil gi-big"></span>
+				</div>
+				<h4><%=l 'stage_1' %> <a href="http://thingiverse.com/">Thingiverse</a></h4>
+			</div>
+			<div class="col-md-4">
+				<div class="center-block">
+					<span class="glyphicon glyphicon-cloud-upload gi-big"></span>
+				</div>
+				<h4><%=l 'stage_2' %></h4>
+			</div>
+			<div class="col-md-4">
+				<div class="center-block">
+					<div class="center-block">
+						<span class="glyphicon glyphicon-ok-circle gi-big"></span>
+					</div>
+				<h4><%=l 'stage_3' %></h4>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+
+<footer>
+	<div class="container">
+		<div class="row">
+			<div class="col-md-12">
+				<div class="pull-left"><a href="https://github.com/paulserikov"><%=l 'author' %></a></div>
+				<div class="pull-right"><a href="http://www.47hours.org/"><%=l 'hackathon' %></a></div>
+			</div>
+		</div>
+	</div>
+</footer>
+<a href="https://github.com/paulserikov/fablab_calc"><img style="position: absolute; top: 0; left: 0; border: 0;" src="https://camo.githubusercontent.com/82b228a3648bf44fc1163ef44c62fcc60081495e/68747470733a2f2f73332e616d617a6f6e6177732e636f6d2f6769746875622f726962626f6e732f666f726b6d655f6c6566745f7265645f6161303030302e706e67" alt="Fork me on GitHub" data-canonical-src="https://s3.amazonaws.com/github/ribbons/forkme_left_red_aa0000.png"></a>

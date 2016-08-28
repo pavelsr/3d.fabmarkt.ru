@@ -1,0 +1,305 @@
+#!/usr/bin/env perl
+# package TDCalculator:
+# package MyApp;
+
+use Mojolicious::Lite;
+use common::sense;
+use Data::Dumper;
+use Digest::MD5;
+use Math::Round;
+use WWW::Telegram::BotAPI;
+
+
+plugin I18N => { 
+	namespace => 'MyApp::I18N', 
+	default => 'ru', 
+	support_url_langs => [qw(en ru)]
+};
+
+my $config = plugin 'Config';
+
+my $telegram_api = WWW::Telegram::BotAPI->new (
+    token => $config->{telegram}->{token},
+    async => $config->{telegram}->{async}
+);
+
+chomp(my $app_dir = `pwd`);
+if ($config->{paths_type} eq 'relative') {
+   			while (my ($key, $value) = each %{$config->{paths}}) {
+   				if (grep { $_ ne $key } @{$config->{paths_always_full}}) {
+   					$config->{paths}->{$key} = $app_dir."/".$value;
+   				}
+   			}
+}
+
+helper generate_gcode => sub {
+		# Generate gcode for locally-stored stl file
+		# Use console slic3r.pl for it
+		# $model_params is optional
+        my ($self, $stl_file, $model_params) = @_;
+        my $model_params_string = "";
+        if ($model_params) {
+        	$model_params_string = convert_to_slic3r_string($model_params);	# convert hash into string
+        }
+   		my $cmd = "perl ".$config->{paths}->{slic3r_api};
+   		$cmd.=" --load ".$config->{paths}->{default_slic3r_config};
+   		$cmd.= " --output ".$config->{paths}->{temp_gcode_file};
+   		$cmd.=" ".$model_params_string." ".$stl_file;
+   		app->log->info("Running Slic3r: ".$cmd);  # debug
+        my @array = `$cmd`;
+        my $res = {};
+        $res->{gcode} = $config->{paths}->{temp_gcode_file};
+        if ($array[7] =~ /((\d+(?:\.\d+)?)cm3)/ ) {
+        	$res->{stl}->{volume_cm3} = $2;
+		}
+		if ($array[6] =~ /(\d+\.?\d*) minutes and (\d+\.?\d*) seconds/ ) {
+        	$res->{debug}->{slic3r}->{calc_time}->{min} = $1;
+        	$res->{debug}->{slic3r}->{calc_time}->{sec} = $2;
+        }
+        app->log->info("generate_gcode() result: ".$res->{stl}->{volume_cm3}." cm3");
+        return $res;
+};
+
+helper printrun => sub {
+	 # Get print duration from Printrun
+	my ($self, $slic3r_hash) = @_;
+	my $cmd = 'echo "load '.$slic3r_hash->{gcode}.'" | '.$config->{paths}->{printrun};
+	app->log->info("Running Printrun: ".$cmd);  # debug
+	my @a = `$cmd`;
+	for (@a) {
+		if ($_ =~ /Estimated duration/) { # find needed string
+		  	my $print_time_str = (split (',', $_))[1];
+		  	$print_time_str=~ s/[\s]//;
+		  	$print_time_str=~ s/[\n]//;
+		  	$slic3r_hash->{expected_print_time}->{printrun}->{time_str} = $print_time_str;
+		  	my $time_h = (split (':', $print_time_str))[0];
+		  	my $time_m = (split (':', $print_time_str))[1];
+		  	my $time_s = (split (':', $print_time_str))[2];
+		  	$slic3r_hash->{expected_print_time}->{printrun}->{hours} = ($time_h*3600 + $time_m*60 + $time_s)/3600;
+		}
+	}
+	app->log->info("printrun() result: ".$slic3r_hash->{expected_print_time}->{printrun}->{time_str});
+	return $slic3r_hash;
+};
+
+helper calc_prime_cost => sub {
+	# calculate prime cost
+	my ($self, $hash) = @_;
+	my $hours_total = $hash->{expected_print_time}->{printrun}->{hours}; # you can change to any api
+	$hash->{stl}->{pla_weight_g} = $hash->{stl}->{volume_cm3} * $config->{plastic_density};
+    $hash->{prime_cost}->{detailed}->{pla_cost} = $hash->{stl}->{pla_weight_g} * ($config->{costs}->{kg}/1000);
+    $hash->{prime_cost}->{detailed}->{energy_cost} = $hours_total * $config->{costs}->{kWh};
+	$hash->{prime_cost}->{detailed}->{amortization} = $hours_total * $config->{costs}->{amortization_per_hour};
+	
+	for (values %{$hash->{prime_cost}->{detailed}}) {
+		$hash->{prime_cost}->{total} += $_;
+	}
+	return $hash;
+};
+
+helper customer_api => sub {
+	my ($self, $stl_file, $model_params) = @_;
+	my $hash = $self->generate_gcode($stl_file, $model_params); 
+	my $printrun_added = $self->printrun($hash); # require $hash->{gcode}
+	my $user_hash = $self->calc_prime_cost($printrun_added);  # require $hash->{expected_print_time_hours}->{printrun}
+	
+	$user_hash->{price} = $user_hash->{stl}->{pla_weight_g} * $config->{costs}->{money_per_g};
+	if ($user_hash->{price} < $config->{costs}->{min_price}) {
+		$user_hash->{price} = $config->{costs}->{min_price};
+	}
+	$user_hash->{profit}->{absolute} = $user_hash->{price} - $user_hash->{prime_cost}->{total};
+	$user_hash->{profit}->{percentage} = ($user_hash->{price} / $user_hash->{prime_cost}->{total})*100;
+
+	#### round profit, prime_cost->total and expected_print_time
+	$user_hash = $self->round($user_hash);
+	####	
+
+	### notify owner about each calculation
+	if ($config->{notifications}) {
+		$self->send_message_to_owner($user_hash, "n"); # notification
+	}
+	$self->session(res => $user_hash);
+
+	$user_hash = { map { $_ => $user_hash->{$_} } grep { exists $user_hash->{$_} } qw\stl price expected_print_time\ };   # fields to leave
+	return $user_hash;
+};
+
+helper round => sub {
+	my ($self, $user_hash) = @_;
+	while (my ($key, $value) = each %{$user_hash->{profit}}) {
+		$user_hash->{profit}->{$key} = math_round($value);
+	}
+	$user_hash->{prime_cost}->{total} = math_round($user_hash->{prime_cost}->{total});
+	while (my ($key, $value) = each %{$user_hash->{expected_print_time}}) {
+		$user_hash->{expected_print_time}->{$key}->{hours} = math_round($user_hash->{expected_print_time}->{$key}->{hours});
+	}
+	return $user_hash;
+};
+
+helper send_message_to_owner => sub {
+	# $type = [n|o]; n = notification, o = order
+	my ($self, $hash, $type) = @_;
+	my $to = $config->{telegram}->{owner_id};
+	my $text = "New ";
+	if ($type eq "n") {
+		$text.="calculation";
+	} else {
+		$text.="order";
+	}
+	$text.=". Weight: ".$hash->{stl}->{pla_weight_g};
+	$text.=", print time: ".$hash->{expected_print_time}->{printrun}->{time_str};
+	$text.=", price: ".$hash->{price};
+	$text.=". My expected profit: ".$hash->{profit}->{absolute}." ( ".$hash->{profit}->{percentage}."% ) ";
+	
+	$telegram_api->sendMessage({chat_id => $to, text => $text});
+	# $telergam_api->sendMessage({chat_id => $to, text => 'test'}, sub {
+	# 	my ($ua, $tx) = @_;
+ #    	app->log->info("Telegram notification error") unless $tx->success;
+	# });
+	return 1;
+};
+
+sub math_round {
+	my $n= shift;
+	return nearest(.01, $n);
+}
+
+sub convert_to_slic3r_string {
+    my $hash = shift;
+    my $string;
+    foreach my $key ( keys %$hash ) {
+        $string = join('', $string, '--',$key, ' ', $hash->{$key}, ' ');
+	}
+    return $string;
+};	
+
+get '/' => sub {
+  my $self = shift;
+  $self->render('index');
+};
+
+get '/example' => sub {
+  # Unit test
+  my $self = shift;
+  # my %model_params = (
+  #       layer_height => '0.2',
+  #       fill_density => '20',
+  #       fill_pattern => 'honeycomb',
+  #       perimeters => '3',
+  #       top_solid_layers => '3',
+  #       bottom_solid_layers => '3',
+  #   );
+  my $file = '/home/pavel/projects/fablab_calc/examples/keychain.stl';
+  # my $h = $self->calc_prime_cost_by_gcode($self->generate_gcode($file));
+  my $h = $self->customer_api($file);
+  $self->render(json => $h);
+};
+
+## Main file
+post '/upload' => sub {
+  my $self = shift;
+  my $path_for_tmp_files = $config->{paths}->{stl_tmp};
+  my $upload = $self->param('model');
+  return $self->render(text => 'File is too big.', status => 200) if $self->req->is_limit_exceeded;
+  return $self->redirect_to('/') unless $upload;
+  my $size = $upload->size;
+  my $name = $upload->filename;
+  my $new_filename = Digest::MD5::md5_hex($name).".stl";
+  my $full_path = $path_for_tmp_files."/".$new_filename;
+  app->log->info("Received an stl file: ".$name. ", size:".$upload->size." Moving it to ".$full_path); 
+  $upload->move_to($full_path);
+
+  my $api_hash = $self->customer_api($full_path);
+  $self->session->{res}->{stl}->{path} = $full_path;
+  $self->render(template => "result_simple", param1 => $api_hash);
+  # $self->render(json=>$api_hash);
+};
+
+
+post '/' => sub {
+  # Telegram API intergration
+  my $c = shift;
+  # app->log->info("Params:". Dumper \@{$c->req->params->names});
+  app->log->info("Request : ".Dumper $c->req->json);
+  # app->log->info($c->param('message'));
+  # if (ref $c->req->json->{message} eq 'HASH') {
+  # 	my $command = $c->req->json->{message}->{text};
+  # 	my $chat_id = $c->req->json->{message}->{chat}->{id};
+  # 	my $id =  $c->req->json->{message}->{from}->{id};
+  	
+  # 	if ($command eq '/newcalc') {
+  # 		$telegram_api->sendMessage ({chat_id => $chat_id,text => 'Please send me an .stl file'});
+  # 	}
+  # }
+  $c->render(text=> "POST / ok");
+};
+
+
+post '/order' => sub {
+  # Telegram API intergration
+  my $self = shift;
+  warn Dumper $self->param('name');
+  warn Dumper $self->param('phone');
+  app->log->info(Dumper $self->session->{res});
+  $self->send_message_to_owner($self->session->{res}, "o"); # order
+
+  my $text = "Name: ".$self->param('name').", phone: ".$self->param('phone');
+ 
+  my $to = $config->{telegram}->{owner_id};
+  $telegram_api->sendMessage({chat_id => $to, text => $text});
+
+  my $stl = Mojo::Asset::File->new(path => $self->session->{res}->{stl}->{path});
+  $telegram_api->api_request('sendDocument', { 
+   		chat_id => $to, 
+   		document => {
+   			filename => 'order.stl',
+   			content  => $stl->slurp
+   		}
+   	});
+
+   my $gcode = Mojo::Asset::File->new(path => $self->session->{res}->{gcode});
+   $telegram_api->api_request('sendDocument', { 
+   		chat_id => $to, 
+   		document => {
+   			filename => 'order.gcode',
+   			content  => $gcode->slurp
+   		}
+   	});
+
+   delete $self->session->{res};
+   $self->render(text=> $self->l('order_message'));
+};
+
+
+
+
+# post '/count' => sub {
+# 	my $self = shift;
+# 	my $request = $self->req->json;
+# 	my $array = $request->{'params'};
+# 	my $full_path =  $request->{'file'};
+# 	my $hash;
+# 	for (@$array) {
+# 		$hash->{ $_->{'param'} } = $_->{'value'};
+# 	}
+# 	# warn "What goes from Jquery sierialize form";
+# 	# warn Dumper $hash;	
+# 	# warn "================================";		
+# 	my $new_estimation = estimate_cost_and_time($full_path, $hash, \%cost_params);
+	
+
+# 	# my $data = to_json  { 'cost' => $new_estimation->{'total_cost'}, 'hours' => $new_estimation->{'time_h'}, 'minutes' => $new_estimation->{'time_m'}, 'seconds' => $new_estimation->{'time_s'} };
+# 	# my $data = encode_json { cost => $new_estimation->{'total_cost'}, hours => $new_estimation->{'time_h'}, minutes => $new_estimation->{'time_m'}, seconds => $new_estimation->{'time_s'} };
+# 	# my $data = Mojo::JSON::encode_json { cost => 'text1' };
+# 	my $j = JSON::Any->new;
+# 	my $json = $j->objToJson({ cost => $new_estimation->{'total_cost'}, hours => $new_estimation->{'time_h'}, minutes => $new_estimation->{'time_m'}, seconds => $new_estimation->{'time_s'} });
+# 	$self->render(text => $json);
+# };
+
+
+app->start;
+
+
+
+
+
