@@ -4,6 +4,32 @@ Based on [Slic3r](https://github.com/alexrj/Slic3r) and [Printrun](https://githu
 
 However you can easily add your own APIs to this app
 
+
+**Table of Contents**  *generated with [DocToc](http://doctoc.herokuapp.com/)*
+
+- [3d printing calculator](#)
+	- [Install](#)
+	- [Configure](#)
+		- [3dcalculator.conf tips and tricks](#)
+	- [How to run (deploy) the app ?](#)
+		- [Start/stop to debug](#)
+		- [Start/stop at production server](#)
+		- [Backend API](#)
+		- [Frontend API](#)
+			- [index.html.ep](#)
+			- [adjust.html.ep](#)
+			- [Notes](#)
+	- [F.A.Q. for developers](#)
+		- [What to do if you can't install Slic3r-XS on your server](#)
+		- [How does the log from Slic3r command line looks like?](#)
+		- [How does the log from Printrun command line looks like?](#)
+		- [How to setup Telegram Webhooks](#)
+			- [Documentation](#)
+		- [What if app doesn't work?](#)
+			- [Regexp doesn't work anymore](#)
+			- [Check permissions](#)
+
+
 ## Install
 
 Just run ``installdeps.sh``, it will download and install all project dependencies
