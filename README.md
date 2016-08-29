@@ -1,6 +1,6 @@
 # 3d printing calculator
 
-Based on Slic3r and Printrun
+Based on [Slic3r](https://github.com/alexrj/Slic3r) and [Printrun](https://github.com/kliment/Printrun). Written on Perl [Mojolicious](https://github.com/kraih/mojo) web framework.
 
 However you can easily add your own APIs to this app
 
@@ -10,6 +10,8 @@ Just run ``installdeps.sh``, it will download and install all project dependenci
 
 
 ## Configure
+
+To run the app you need to create in project root ``3dcalculator.conf`` file. Content is described below.
 
 sudo nano 3dcalculator.conf:
 
@@ -33,7 +35,7 @@ sudo nano 3dcalculator.conf:
      kWh => 5, # roubles (or in any local currency )
      consumption => 360, # W
      amortization_per_hour => 0.02, # roubles
-     money_per_g => 8,
+     money_per_g => 8, # cost of gramm
      min_price => 100
   },
   default_plastic_type => "PLA",
@@ -78,17 +80,18 @@ ones which specified at ``paths_always_full`` array
 If you will set `$config->costs->min_price = 0 you will get prime cost
 
 
-## How to run the app ?
+## How to run (deploy) the app ?
 
 ### Start/stop to debug
 
-morbo 3dcalculator
+``morbo 3dcalculator``
 
-### Start/stop at deployment server
+### Start/stop at production server
 
+```
 hypnotoad 3dcalculator
 hypnotoad 3dcalculator --stop
-
+```
 
 ### Backend API
 
@@ -117,7 +120,7 @@ Main method is ``customer_api``
 
 ### Frontend API
 
-index.html.ep
+#### index.html.ep
 
 POST /upload
 
@@ -135,9 +138,13 @@ param: model
 ```			    		
 
 
-adjust.html.ep
+#### adjust.html.ep
 
-Also using https://metacpan.org/pod/Mojolicious::Plugin::TagHelpers
+Not implemented yet
+
+#### Notes
+
+P.S. For HTML generation sometimes I use https://metacpan.org/pod/Mojolicious::Plugin::TagHelpers
 
 
 ## F.A.Q. for developers
@@ -212,6 +219,12 @@ server {
   }
 }
 ```
+
+#### Documentation 
+
+I generated TOC via http://doctoc.herokuapp.com/
+
+As offline alternative you can use [it](https://github.com/ekalinin/github-markdown-toc)
 
 
 ### What if app doesn't work?
